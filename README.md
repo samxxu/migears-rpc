@@ -6,6 +6,10 @@ Minimalist JSON-RPC 2.0 client and server for PHP — zero dependencies, pure PH
 
 A lightweight, fully compliant implementation of JSON-RPC 2.0. No curl required, no external dependencies. Just ~450 lines of code total across three classes: client, server, and exception.
 
+> **Background**: miGears is the open-source successor of **TinyGears**, a
+> self-developed PHP framework. It was renamed and open-sourced recently because
+> the name *TinyGears* is already taken in the open-source community.
+
 ## Features
 
 - **Full JSON-RPC 2.0 compliance** — single calls, notifications, batch requests
