@@ -253,6 +253,36 @@ class JsonRpcServerTest extends TestCase
         $this->assertSame('', $response);
     }
 
+    // --- Non-object / empty requests (spec edge cases) ---
+
+    public function testNullRequestIsInvalidRequest(): void
+    {
+        $response = $this->server->handle('null');
+        $data = json_decode($response, true);
+
+        $this->assertSame(-32600, $data['error']['code']);
+        $this->assertNull($data['id']);
+    }
+
+    public function testScalarRequestsAreInvalidRequest(): void
+    {
+        foreach (['123', '"hello"', 'true'] as $input) {
+            $data = json_decode($this->server->handle($input), true);
+            $this->assertSame(-32600, $data['error']['code'], "input: $input");
+        }
+    }
+
+    public function testEmptyBatchIsInvalidRequest(): void
+    {
+        $response = $this->server->handle('[]');
+
+        // An empty batch yields a single error response (not an array).
+        $data = json_decode($response, true);
+        $this->assertArrayNotHasKey(0, $data);
+        $this->assertSame(-32600, $data['error']['code']);
+        $this->assertNull($data['id']);
+    }
+
     public function testBatchWithInvalidRequest(): void
     {
         $requests = [

@@ -58,8 +58,13 @@ class JsonRpcServer
             return $this->encodeError(-32700, 'Parse error');
         }
 
-        // Batch request
-        if (isset($request[0]) && is_array($request)) {
+        // A well-formed JSON-RPC request must be an object or a batch array.
+        if (!is_array($request)) {
+            return $this->encodeError(-32600, 'Invalid Request');
+        }
+
+        // Batch request (an empty array is a list, handled per spec below)
+        if (array_is_list($request)) {
             return $this->handleBatch($request);
         }
 
@@ -131,6 +136,11 @@ class JsonRpcServer
      */
     private function handleBatch(array $requests): string
     {
+        // An empty batch is an Invalid Request — respond with a single error.
+        if ($requests === []) {
+            return $this->encodeError(-32600, 'Invalid Request');
+        }
+
         $responses = [];
 
         foreach ($requests as $req) {

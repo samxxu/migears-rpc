@@ -63,7 +63,7 @@ class JsonRpcClient
             throw new JsonRpcException(-32603, 'Invalid response: missing or wrong jsonrpc version');
         }
 
-        if (!isset($data['id']) || $data['id'] !== $id) {
+        if (!array_key_exists('id', $data) || $data['id'] !== $id) {
             throw new JsonRpcException(-32603, 'Invalid response: id mismatch');
         }
 
@@ -132,6 +132,13 @@ class JsonRpcClient
 
         if (!is_array($data)) {
             throw new JsonRpcException(-32603, 'Invalid batch response');
+        }
+
+        // Each element of a batch response must itself be a response object.
+        foreach ($data as $entry) {
+            if (!is_array($entry)) {
+                throw new JsonRpcException(-32603, 'Invalid batch response');
+            }
         }
 
         return $data;

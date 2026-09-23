@@ -4,7 +4,12 @@
     "type": "library",
     "license": "MIT",
     "version": "2.0.0",
-    "keywords": ["json-rpc", "rpc", "api", "migears"],
+    "keywords": [
+        "json-rpc",
+        "rpc",
+        "api",
+        "migears"
+    ],
     "require": {
         "php": "^8.1"
     },
@@ -20,5 +25,8 @@
         "psr-4": {
             "MiGears\\Rpc\\Tests\\": "tests/"
         }
+    },
+    "scripts": {
+        "test": "phpunit"
     }
 }
