@@ -20,7 +20,8 @@ class JsonRpcServer
 {
     public const VERSION = '2.0.0';
 
-    private const string JSONRPC_VERSION = '2.0';
+    /** @var string JSON-RPC protocol version */
+    private const JSONRPC_VERSION = '2.0';
 
     /** @var array<string, callable> Registered method handlers */
     private array $methods = [];
@@ -127,7 +128,9 @@ class JsonRpcServer
             return $this->errorResponse($e->getCode(), $e->getMessage(), $id, $e->getData());
         } catch (\Throwable $e) {
             if ($isNotification) return null;
-            return $this->errorResponse(-32603, 'Internal error', $id, $e->getMessage());
+            // Never leak the raw message (may contain DSNs, credentials, paths).
+            // The exception class name gives remote callers type-level diagnostics only.
+            return $this->errorResponse(-32603, 'Internal error', $id, (new \ReflectionClass($e))->getShortName());
         }
     }
 

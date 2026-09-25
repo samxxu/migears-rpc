@@ -20,7 +20,8 @@ class JsonRpcClient
 {
     public const VERSION = '2.0.0';
 
-    private const string JSONRPC_VERSION = '2.0';
+    /** @var string JSON-RPC protocol version */
+    private const JSONRPC_VERSION = '2.0';
 
     private int $requestId = 0;
 
