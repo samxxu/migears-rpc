@@ -47,16 +47,26 @@ class JsonRpcServer
     }
 
     /**
-     * Handle a JSON-RPC request string and return the response JSON string.
+     * Handle a JSON-RPC request and return the response JSON string.
      *
-     * Returns empty string for notifications (no response needed).
+     * Accepts a raw JSON string, or an already-decoded request array (a single
+     * request object or a batch list). The array form suits HTTP layers that
+     * have already parsed the body — e.g. miGears Web's `Request::$body`.
+     *
+     * Returns an empty string for notifications (no response needed).
+     *
+     * @param string|array<int|string, mixed> $request Raw JSON or decoded request
      */
-    public function handle(string $rawRequest): string
+    public function handle(string|array $request): string
     {
-        $request = json_decode($rawRequest, true);
+        if (is_string($request)) {
+            $decoded = json_decode($request, true);
 
-        if ($request === null && json_last_error() !== JSON_ERROR_NONE) {
-            return $this->encodeError(-32700, 'Parse error');
+            if ($decoded === null && json_last_error() !== JSON_ERROR_NONE) {
+                return $this->encodeError(-32700, 'Parse error');
+            }
+
+            $request = $decoded;
         }
 
         // A well-formed JSON-RPC request must be an object or a batch array.
@@ -76,12 +86,13 @@ class JsonRpcServer
             return '';
         }
 
-        return $this->encode($response);
+        return $this->encodeResponse($response);
     }
 
     /**
      * Handle a single request array.
      *
+     * @param array<string, mixed> $request Decoded JSON-RPC request object
      * @return array<string, mixed>|null Response array, or null for notifications
      *         (including notifications that fail validation or method lookup)
      */
@@ -137,6 +148,12 @@ class JsonRpcServer
         } catch (JsonRpcException $e) {
             if ($isNotification) return null;
             return $this->errorResponse($e->getCode(), $e->getMessage(), $id, $e->getData());
+        } catch (\ArgumentCountError) {
+            if ($isNotification) return null;
+            // The caller's params do not satisfy the handler's signature.
+            // Note: `{}` and `[]` both decode to an empty array, so "too few
+            // arguments" is reported as invalid params rather than distinguished.
+            return $this->errorResponse(-32602, 'Invalid params', $id);
         } catch (\Throwable $e) {
             if ($isNotification) return null;
             // Never leak the raw message (may contain DSNs, credentials, paths).
@@ -147,6 +164,8 @@ class JsonRpcServer
 
     /**
      * Handle a batch of requests.
+     *
+     * @param list<mixed> $requests Decoded batch list (each entry handled as a request)
      */
     private function handleBatch(array $requests): string
     {
@@ -173,7 +192,14 @@ class JsonRpcServer
             return ''; // All notifications
         }
 
-        return $this->encode($responses);
+        // Encode element-wise: one un-encodable result must not collapse the
+        // whole batch into a single object — a batch response is always an array.
+        $parts = [];
+        foreach ($responses as $response) {
+            $parts[] = $this->encodeResponse($response);
+        }
+
+        return '[' . implode(',', $parts) . ']';
     }
 
     /**
@@ -199,6 +225,8 @@ class JsonRpcServer
 
     /**
      * Build an error response array.
+     *
+     * @return array<string, mixed>
      */
     private function errorResponse(int $code, string $message, mixed $id, mixed $data = null): array
     {
@@ -234,10 +262,38 @@ class JsonRpcServer
     }
 
     /**
+     * Encode a single response, preserving the original id on failure.
+     *
+     * A result that cannot be encoded (e.g. invalid UTF-8) still yields a
+     * correlatable response — the client sees an Internal error for its own id
+     * instead of a confusing id mismatch.
+     *
+     * @param array<string, mixed> $response
+     */
+    private function encodeResponse(array $response): string
+    {
+        $json = json_encode($response, JSON_UNESCAPED_UNICODE);
+
+        if ($json !== false) {
+            return $json;
+        }
+
+        return $this->encode([
+            'jsonrpc' => self::JSONRPC_VERSION,
+            'error' => [
+                'code' => -32603,
+                'message' => 'Internal error',
+            ],
+            'id' => $response['id'] ?? null,
+        ]);
+    }
+
+    /**
      * Safe json_encode wrapper — always returns a string.
      *
-     * On encoding failure (e.g. invalid UTF-8 in handler result), returns
-     * a static -32603 Internal error JSON instead of throwing TypeError.
+     * Last-resort guard: if even the fallback response cannot be encoded
+     * (e.g. an un-encodable id supplied via an array request), return a
+     * static JSON string instead of throwing a TypeError.
      *
      * @param array<mixed> $data
      */

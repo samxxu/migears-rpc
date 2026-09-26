@@ -313,13 +313,89 @@ class JsonRpcServerTest extends TestCase
         $request = json_encode([
             'jsonrpc' => '2.0',
             'method' => 'bad',
-            'id' => 1,
+            'id' => 42,
         ]);
 
         $response = $server->handle($request);
 
         $data = json_decode($response, true);
         $this->assertSame(-32603, $data['error']['code']);
+        // The original id must survive so the client can correlate the failure.
+        $this->assertSame(42, $data['id']);
+    }
+
+    public function testBatchWithUnencodableResultStaysAnArray(): void
+    {
+        $server = new JsonRpcServer();
+        $server->register('ok', fn() => 'fine');
+        $server->register('bad', fn() => "\xB1\x31");
+
+        $request = json_encode([
+            ['jsonrpc' => '2.0', 'method' => 'ok', 'id' => 1],
+            ['jsonrpc' => '2.0', 'method' => 'bad', 'id' => 2],
+        ]);
+
+        $response = $server->handle($request);
+        $decoded = json_decode($response, true);
+
+        // A batch response must remain an array — one bad result must not
+        // collapse the whole batch into a single error object.
+        $this->assertIsArray($decoded);
+        $this->assertTrue(array_is_list($decoded));
+        $this->assertCount(2, $decoded);
+
+        // Valid result survives.
+        $this->assertSame('fine', $decoded[0]['result']);
+        $this->assertSame(1, $decoded[0]['id']);
+
+        // Only the offending element degrades, keeping its own id.
+        $this->assertSame(-32603, $decoded[1]['error']['code']);
+        $this->assertSame(2, $decoded[1]['id']);
+    }
+
+    public function testParamsEmptyObjectReturnsInvalidParams(): void
+    {
+        $server = new JsonRpcServer();
+        $server->register('need2', fn($a, $b) => $a + $b);
+
+        // params:{} decodes to [] — an empty param set cannot satisfy a
+        // handler that requires arguments, and must not surface as -32603.
+        $response = $server->handle('{"jsonrpc":"2.0","method":"need2","params":{},"id":1}');
+        $data = json_decode($response, true);
+
+        $this->assertSame(-32602, $data['error']['code']);
+        $this->assertSame(1, $data['id']);
+        // No PHP exception class name may travel back to the caller.
+        $this->assertArrayNotHasKey('data', $data['error']);
+    }
+
+    // --- Decoded-array input (e.g. miGears Web Request::$body) ---
+
+    public function testHandleAcceptsDecodedArray(): void
+    {
+        $response = $this->server->handle([
+            'jsonrpc' => '2.0',
+            'method' => 'add',
+            'params' => [2, 3],
+            'id' => 7,
+        ]);
+
+        $data = json_decode($response, true);
+        $this->assertSame(5, $data['result']);
+        $this->assertSame(7, $data['id']);
+    }
+
+    public function testHandleAcceptsDecodedBatchArray(): void
+    {
+        $response = $this->server->handle([
+            ['jsonrpc' => '2.0', 'method' => 'add', 'params' => [1, 1], 'id' => 1],
+            ['jsonrpc' => '2.0', 'method' => 'ping', 'id' => 2],
+        ]);
+
+        $results = json_decode($response, true);
+        $this->assertCount(2, $results);
+        $this->assertSame(2, $results[0]['result']);
+        $this->assertSame('pong', $results[1]['result']);
     }
 
     // --- Batch ---

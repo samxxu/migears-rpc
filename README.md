@@ -4,7 +4,7 @@
 
 Minimalist JSON-RPC 2.0 client and server for PHP — zero dependencies, pure PHP streams.
 
-A lightweight, fully compliant implementation of JSON-RPC 2.0. No curl required, no external dependencies. Just ~530 lines of code total across three classes: client, server, and exception.
+A lightweight, fully compliant implementation of JSON-RPC 2.0. No curl required, no external dependencies. Just ~625 lines of code total across three classes: client, server, and exception.
 
 > **Background**: miGears is the open-source successor of **TinyGears**, a
 > self-developed PHP framework. It was renamed and open-sourced recently because
@@ -19,7 +19,7 @@ A lightweight, fully compliant implementation of JSON-RPC 2.0. No curl required,
 - **Standard error codes** — parse error, invalid request, method not found, invalid params, internal error
 - **Batch requests** — mix calls and notifications in a single batch
 - **Notification support** — fire-and-forget, no response expected
-- **~530 lines total** — readable, auditable, understandable
+- **~625 lines total** — readable, auditable, understandable
 
 ## Installation
 
@@ -116,7 +116,7 @@ $client->setHeader('X-API-Key', 'my-key');
 |--------|-------------|
 | `__construct(string $endpoint, float $timeout = 10.0, array $headers = [])` | Create a new client |
 | `call(string $method, array $params = []): mixed` | Call a remote method and return the result |
-| `notify(string $method, array $params = []): void` | Send a notification (no response) |
+| `notify(string $method, array $params = []): void` | Send a notification (no response; uses `NOTIFY_TIMEOUT`) |
 | `batch(array $requests): array` | Send a batch of requests |
 | `setHeader(string $name, string $value): self` | Add a custom HTTP header |
 | `getLastRequestId(): int` | Get the current request counter value |
@@ -127,7 +127,7 @@ $client->setHeader('X-API-Key', 'my-key');
 |--------|-------------|
 | `register(string $method, callable $handler): self` | Register a method handler |
 | `has(string $method): bool` | Check if a method is registered |
-| `handle(string $rawRequest): string` | Handle a JSON-RPC request string, return response JSON |
+| `handle(string\|array $request): string` | Handle a raw JSON string or a decoded request array, return response JSON |
 
 ### JsonRpcException
 
@@ -139,6 +139,16 @@ $client->setHeader('X-API-Key', 'my-key');
 | `invalidParams(string $details = '')` | -32602 |
 | `internalError(string $details = '')` | -32603 |
 
+## Behaviour Notes
+
+**Error `data` field.** A handler that throws `JsonRpcException` controls the error verbatim, including its optional `data`. Any other exception becomes `-32603 Internal error` whose `data` holds only the exception's short class name (e.g. `PDOException`); the raw message is deliberately withheld because it can carry DSNs, credentials and filesystem paths.
+
+**Batch responses** are always a JSON array. If a single result cannot be encoded (for example invalid UTF-8 returned by a handler), only that element becomes a `-32603` error — its `id` is preserved, and the remaining results are returned intact.
+
+**Notifications.** `notify()` never waits for the configured request timeout. It uses `JsonRpcClient::NOTIFY_TIMEOUT` (0.5 s) and swallows transport errors, because a notification has no response to report back.
+
+**Known limitations.** After `json_decode()`, `params: {}` and `params: []` are indistinguishable (both `[]`), so an empty param set is passed as zero arguments and a handler that requires arguments answers `-32602 Invalid params`. Likewise, a single request object whose keys happen to be exactly `0..n-1` decodes into a list and is treated as a batch request.
+
 ## Design Philosophy
 
 miGears RPC follows the miGears philosophy: **minimal, readable, and useful**.
@@ -146,7 +156,7 @@ miGears RPC follows the miGears philosophy: **minimal, readable, and useful**.
 - **No bloat** — just the JSON-RPC 2.0 spec, nothing more
 - **No magic** — explicit method registration, no auto-discovery
 - **No dependencies** — pure PHP, uses `file_get_contents` with stream contexts
-- **Small enough to read** — three classes, ~530 lines total
+- **Small enough to read** — three classes, ~625 lines total
 
 **What we don't do**:
 - No transport layer abstractions (HTTP, TCP, etc.) — bring your own
@@ -158,6 +168,9 @@ miGears RPC follows the miGears philosophy: **minimal, readable, and useful**.
 
 ```php
 use MiGears\Web\MiRest;
+use MiGears\Web\AbstractResource;
+use MiGears\Web\Request;
+use MiGears\Web\Response;
 use MiGears\Rpc\JsonRpcServer;
 
 $rest = new MiRest(__DIR__ . '/resources', 'App\\Resources');
@@ -174,9 +187,20 @@ class RpcEndpoint extends AbstractResource
 {
     public function POST(Request $request): Response
     {
-        $server = $this->service('rpc');
-        $response = $server->handle($request->getBody());
-        return Response::json(json_decode($response, true));
+        // resolve() is the container accessor defined on AbstractResource.
+        // $request->body is already decoded by the web layer, and handle()
+        // accepts a decoded array directly — no need to re-encode it.
+        $server = $this->resolve('rpc');
+        $json = $server->handle($request->body);
+
+        // A notification produces no response body.
+        if ($json === '') {
+            return Response::empty();
+        }
+
+        // Pass the JSON through verbatim instead of re-encoding it.
+        return (new Response($json))
+            ->withHeader('Content-Type', 'application/json; charset=utf-8');
     }
 }
 ```
@@ -193,7 +217,7 @@ MIT
 
 极简 JSON-RPC 2.0 客户端与服务端 — 零依赖，纯 PHP 流实现。
 
-轻量级、完全兼容 JSON-RPC 2.0 规范的实现。不需要 curl，没有外部依赖。三个类总共约 530 行代码：客户端、服务端和异常类。
+轻量级、完全兼容 JSON-RPC 2.0 规范的实现。不需要 curl，没有外部依赖。三个类总共约 625 行代码：客户端、服务端和异常类。
 
 ## 特性
 
@@ -204,7 +228,7 @@ MIT
 - **标准错误码** — 解析错误、无效请求、方法未找到、无效参数、内部错误
 - **批量请求** — 单次批量中可混合调用和通知
 - **通知支持** — 发后即忘，不需要响应
-- **总共约 530 行** — 可读、可审计、可理解
+- **总共约 625 行** — 可读、可审计、可理解
 
 ## 安装
 
@@ -301,7 +325,7 @@ $client->setHeader('X-API-Key', 'my-key');
 |------|------|
 | `__construct(string $endpoint, float $timeout = 10.0, array $headers = [])` | 创建新客户端 |
 | `call(string $method, array $params = []): mixed` | 调用远程方法并返回结果 |
-| `notify(string $method, array $params = []): void` | 发送通知（无响应） |
+| `notify(string $method, array $params = []): void` | 发送通知（无响应；使用 `NOTIFY_TIMEOUT`） |
 | `batch(array $requests): array` | 发送批量请求 |
 | `setHeader(string $name, string $value): self` | 添加自定义 HTTP 头 |
 | `getLastRequestId(): int` | 获取当前请求计数器值 |
@@ -312,7 +336,7 @@ $client->setHeader('X-API-Key', 'my-key');
 |------|------|
 | `register(string $method, callable $handler): self` | 注册方法处理器 |
 | `has(string $method): bool` | 检查方法是否已注册 |
-| `handle(string $rawRequest): string` | 处理 JSON-RPC 请求字符串，返回响应 JSON |
+| `handle(string\|array $request): string` | 处理原始 JSON 字符串或已解码的请求数组，返回响应 JSON |
 
 ### JsonRpcException
 
@@ -324,6 +348,16 @@ $client->setHeader('X-API-Key', 'my-key');
 | `invalidParams(string $details = '')` | -32602 |
 | `internalError(string $details = '')` | -32603 |
 
+## 行为说明
+
+**错误 `data` 字段。** 处理器主动抛出 `JsonRpcException` 时，错误内容（含可选 `data`）原样透传。其他异常统一变为 `-32603 Internal error`，其 `data` 只放异常短类名（如 `PDOException`）；原始 message 一律不回传，因为它可能携带 DSN、账号密码与文件路径。
+
+**批量响应**始终是 JSON 数组。若某一条结果无法编码（例如处理器返回非法 UTF-8），只有该条变成 `-32603` 错误，且保留其原始 `id`，其余结果不受影响、完整返回。
+
+**通知。** `notify()` 不等待构造器配置的请求超时，而是使用 `JsonRpcClient::NOTIFY_TIMEOUT`（0.5 秒）并吞掉传输层错误——通知本就没有响应需要回传。
+
+**已知限制。** 经 `json_decode()` 之后，`params: {}` 与 `params: []` 无法区分（都是 `[]`），因此空参数集会以「零个参数」调用处理器，需要参数的处理器将返回 `-32602 Invalid params`。同理，单个请求对象的键恰好为 `0..n-1` 时会被解码成列表，从而按批量请求处理。
+
 ## 设计哲学
 
 miGears RPC 遵循 miGears 设计哲学：**极简、可读、实用**。
@@ -331,7 +365,7 @@ miGears RPC 遵循 miGears 设计哲学：**极简、可读、实用**。
 - **不臃肿** — 只实现 JSON-RPC 2.0 规范，不多不少
 - **不魔法** — 显式方法注册，没有自动发现
 - **零依赖** — 纯 PHP，使用 `file_get_contents` + 流上下文
-- **小到可以读完** — 三个类，总共约 530 行
+- **小到可以读完** — 三个类，总共约 625 行
 
 **我们不做的事**：
 - 没有传输层抽象（HTTP、TCP 等）— 自己选择传输方式
@@ -343,6 +377,9 @@ miGears RPC 遵循 miGears 设计哲学：**极简、可读、实用**。
 
 ```php
 use MiGears\Web\MiRest;
+use MiGears\Web\AbstractResource;
+use MiGears\Web\Request;
+use MiGears\Web\Response;
 use MiGears\Rpc\JsonRpcServer;
 
 $rest = new MiRest(__DIR__ . '/resources', 'App\\Resources');
@@ -359,9 +396,20 @@ class RpcEndpoint extends AbstractResource
 {
     public function POST(Request $request): Response
     {
-        $server = $this->service('rpc');
-        $response = $server->handle($request->getBody());
-        return Response::json(json_decode($response, true));
+        // resolve() 是 AbstractResource 提供的容器取值方法。
+        // $request->body 已被 web 层解码为数组，handle() 可直接接收，
+        // 无需重新编码。
+        $server = $this->resolve('rpc');
+        $json = $server->handle($request->body);
+
+        // 通知不产生响应体。
+        if ($json === '') {
+            return Response::empty();
+        }
+
+        // 原样透传 JSON，避免二次编解码。
+        return (new Response($json))
+            ->withHeader('Content-Type', 'application/json; charset=utf-8');
     }
 }
 ```

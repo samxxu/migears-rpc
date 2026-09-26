@@ -72,6 +72,9 @@ function handleRequest($req) {
             return ['jsonrpc' => '2.0', 'result' => $params, 'id' => $id];
         case 'error':
             return ['jsonrpc' => '2.0', 'error' => ['code' => -32001, 'message' => 'Server error', 'data' => 'details'], 'id' => $id];
+        case 'stringid':
+            // Non-compliant but common: echo the integer id as a JSON string.
+            return ['jsonrpc' => '2.0', 'result' => 'ok', 'id' => (string) $id];
         default:
             return ['jsonrpc' => '2.0', 'error' => ['code' => -32601, 'message' => 'Method not found'], 'id' => $id];
     }
@@ -165,6 +168,59 @@ PHP
         $this->expectNotToPerformAssertions();
         $client = $this->getClient();
         $client->notify('notify_update', ['test' => 'hello']);
+    }
+
+    public function testNotifyDoesNotWaitForRequestTimeout(): void
+    {
+        // Dedicated server that replies far later than NOTIFY_TIMEOUT.
+        $port = 19600 + random_int(0, 300);
+        $script = tempnam(sys_get_temp_dir(), 'rpc_slow_server_') . '.php';
+        file_put_contents($script, <<<'PHP'
+<?php
+file_get_contents('php://input');
+usleep(1500000);
+header('HTTP/1.1 204 No Content');
+PHP
+        );
+
+        $descriptors = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
+        $process = proc_open(
+            [PHP_BINARY, '-S', '127.0.0.1:' . $port, '-t', sys_get_temp_dir(), $script],
+            $descriptors,
+            $pipes
+        );
+        usleep(500000);
+
+        try {
+            // The request timeout is 10s; notify() must return in NOTIFY_TIMEOUT.
+            $client = new JsonRpcClient('http://127.0.0.1:' . $port);
+
+            $start = microtime(true);
+            $client->notify('slow');
+            $elapsed = microtime(true) - $start;
+
+            $this->assertLessThan(
+                1.0,
+                $elapsed,
+                'notify() must not block for the configured request timeout'
+            );
+        } finally {
+            if (is_resource($process)) {
+                proc_terminate($process);
+                proc_close($process);
+            }
+            @unlink($script);
+        }
+    }
+
+    // --- id interoperability ---
+
+    public function testCallToleratesStringIdEcho(): void
+    {
+        // The server echoes integer ids as strings; the client must still
+        // correlate the response instead of reporting an id mismatch.
+        $client = $this->getClient();
+        $this->assertSame('ok', $client->call('stringid'));
     }
 
     // --- setHeader ---

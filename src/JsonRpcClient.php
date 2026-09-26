@@ -20,6 +20,15 @@ class JsonRpcClient
 {
     public const VERSION = '2.0.0';
 
+    /**
+     * Timeout used by notify(), in seconds.
+     *
+     * Deliberately short and independent of the configured request timeout:
+     * a notification is fire-and-forget, so the client must not block for the
+     * server's full response time.
+     */
+    public const NOTIFY_TIMEOUT = 0.5;
+
     /** @var string JSON-RPC protocol version */
     private const JSONRPC_VERSION = '2.0';
 
@@ -64,7 +73,9 @@ class JsonRpcClient
             throw new JsonRpcException(-32603, 'Invalid response: missing or wrong jsonrpc version');
         }
 
-        if (!array_key_exists('id', $data) || $data['id'] !== $id) {
+        // Compare loosely on string form: a server that echoes integer ids as
+        // JSON strings is tolerated instead of being reported as a protocol error.
+        if (!array_key_exists('id', $data) || (string) $data['id'] !== (string) $id) {
             throw new JsonRpcException(-32603, 'Invalid response: id mismatch');
         }
 
@@ -108,8 +119,8 @@ class JsonRpcClient
     /**
      * Send a batch of requests.
      *
-     * @param list<array{method: string, params?: array, id?: int|string|null}> $requests
-     * @return array<mixed> Array of results (in the same order)
+     * @param list<array{method: string, params?: array<int|string, mixed>, id?: int|string|null}> $requests
+     * @return array<int|string, mixed> Array of results (in the same order)
      */
     public function batch(array $requests): array
     {
@@ -167,6 +178,8 @@ class JsonRpcClient
 
     /**
      * Send JSON via POST and return the response body.
+     *
+     * @param array<int|string, mixed> $payload Request object or batch list to encode
      */
     private function postJson(array $payload, bool $waitForResponse = true): string
     {
@@ -181,7 +194,7 @@ class JsonRpcClient
             'Accept: application/json',
         ], $this->headers);
 
-        $timeout = $waitForResponse ? $this->timeout : 0.5;
+        $timeout = $waitForResponse ? $this->timeout : self::NOTIFY_TIMEOUT;
 
         $context = stream_context_create([
             'http' => [
@@ -199,6 +212,8 @@ class JsonRpcClient
             return '';
         }
 
+        // Clear any earlier error so a stale message cannot be mistaken for this failure.
+        error_clear_last();
         $response = @file_get_contents($this->endpoint, false, $context);
 
         if ($response === false) {
@@ -214,6 +229,8 @@ class JsonRpcClient
 
     /**
      * Parse a JSON-RPC response body.
+     *
+     * @return array<string, mixed>
      */
     private function parseResponse(string $body): array
     {
