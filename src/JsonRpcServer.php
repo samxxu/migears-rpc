@@ -87,8 +87,9 @@ class JsonRpcServer
      */
     private function handleSingle(array $request): ?array
     {
+        $hasId = array_key_exists('id', $request);
         $id = $request['id'] ?? null;
-        $isNotification = $id === null;
+        $isNotification = !$hasId;
 
         // Validate request structure
         if (!isset($request['jsonrpc']) || $request['jsonrpc'] !== self::JSONRPC_VERSION) {
@@ -102,7 +103,17 @@ class JsonRpcServer
         }
 
         $method = $request['method'];
-        $params = $request['params'] ?? [];
+
+        // Params is optional; if present, it must be an array (list or object).
+        if (array_key_exists('params', $request)) {
+            $params = $request['params'];
+            if (!is_array($params)) {
+                if ($isNotification) return null;
+                return $this->errorResponse(-32602, 'Invalid params', $id);
+            }
+        } else {
+            $params = [];
+        }
 
         // Check method exists
         if (!isset($this->methods[$method])) {

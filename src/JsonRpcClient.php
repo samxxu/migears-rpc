@@ -135,10 +135,13 @@ class JsonRpcClient
             throw new JsonRpcException(-32603, 'Invalid batch response');
         }
 
-        // Each element of a batch response must itself be a response object.
+        // Each element of a batch response must itself be a valid response object.
         foreach ($data as $entry) {
             if (!is_array($entry)) {
                 throw new JsonRpcException(-32603, 'Invalid batch response');
+            }
+            if (!isset($entry['jsonrpc']) || $entry['jsonrpc'] !== self::JSONRPC_VERSION) {
+                throw new JsonRpcException(-32603, 'Invalid batch response: wrong jsonrpc version');
             }
         }
 
@@ -178,28 +181,21 @@ class JsonRpcClient
             'Accept: application/json',
         ], $this->headers);
 
+        $timeout = $waitForResponse ? $this->timeout : 0.5;
+
         $context = stream_context_create([
             'http' => [
                 'method' => 'POST',
                 'header' => implode("\r\n", $headers),
                 'content' => $json,
-                'timeout' => $this->timeout,
+                'timeout' => $timeout,
                 'ignore_errors' => true,
             ],
         ]);
 
         if (!$waitForResponse) {
-            // Fire and forget — use a short timeout and discard response
-            $ctx = stream_context_create([
-                'http' => [
-                    'method' => 'POST',
-                    'header' => implode("\r\n", $headers),
-                    'content' => $json,
-                    'timeout' => 0.5,
-                    'ignore_errors' => true,
-                ],
-            ]);
-            @file_get_contents($this->endpoint, false, $ctx);
+            // Fire and forget — discard response
+            @file_get_contents($this->endpoint, false, $context);
             return '';
         }
 

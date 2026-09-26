@@ -205,7 +205,99 @@ class JsonRpcServerTest extends TestCase
         $data = json_decode($response, true);
 
         $this->assertSame(-32603, $data['error']['code']);
-        $this->assertSame('something broke', $data['error']['data']);
+        $this->assertSame('RuntimeException', $data['error']['data']);
+    }
+
+    public function testInternalErrorDoesNotLeakMessage(): void
+    {
+        $server = new JsonRpcServer();
+        $server->register('connect', function () {
+            throw new \PDOException('SQLSTATE[HY000] Access denied for user root@localhost (using password: YES)');
+        });
+
+        $request = json_encode([
+            'jsonrpc' => '2.0',
+            'method' => 'connect',
+            'id' => 1,
+        ]);
+
+        $response = $server->handle($request);
+        $data = json_decode($response, true);
+
+        $this->assertSame(-32603, $data['error']['code']);
+        $this->assertSame('PDOException', $data['error']['data']);
+        // Raw message must not travel back to the remote caller.
+        $this->assertStringNotContainsString('root@localhost', $response);
+        $this->assertStringNotContainsString('using password', $response);
+    }
+
+    // --- id: null is a valid request, NOT a notification ---
+
+    public function testIdNullIsNotANotification(): void
+    {
+        // Per JSON-RPC 2.0 spec, only the absence of "id" makes a notification.
+        // id: null is a valid (though discouraged) request id and MUST get a response.
+        $request = json_encode([
+            'jsonrpc' => '2.0',
+            'method' => 'ping',
+            'id' => null,
+        ]);
+
+        $response = $this->server->handle($request);
+        $this->assertNotSame('', $response);
+
+        $data = json_decode($response, true);
+        $this->assertArrayHasKey('id', $data);
+        $this->assertNull($data['id']);
+        $this->assertSame('pong', $data['result']);
+    }
+
+    public function testIdZeroIsValidRequest(): void
+    {
+        $request = json_encode([
+            'jsonrpc' => '2.0',
+            'method' => 'ping',
+            'id' => 0,
+        ]);
+
+        $response = $this->server->handle($request);
+        $data = json_decode($response, true);
+
+        $this->assertSame(0, $data['id']);
+        $this->assertSame('pong', $data['result']);
+    }
+
+    // --- params edge cases ---
+
+    public function testParamsNullReturnsInvalidParams(): void
+    {
+        // params: null is not a valid structured value per spec.
+        $request = json_encode([
+            'jsonrpc' => '2.0',
+            'method' => 'add',
+            'params' => null,
+            'id' => 1,
+        ]);
+
+        $response = $this->server->handle($request);
+        $data = json_decode($response, true);
+
+        $this->assertSame(-32602, $data['error']['code']);
+    }
+
+    public function testParamsScalarReturnsInvalidParams(): void
+    {
+        $request = json_encode([
+            'jsonrpc' => '2.0',
+            'method' => 'add',
+            'params' => 'hello',
+            'id' => 1,
+        ]);
+
+        $response = $this->server->handle($request);
+        $data = json_decode($response, true);
+
+        $this->assertSame(-32602, $data['error']['code']);
     }
 
     // --- Batch ---

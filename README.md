@@ -4,7 +4,7 @@
 
 Minimalist JSON-RPC 2.0 client and server for PHP — zero dependencies, pure PHP streams.
 
-A lightweight, fully compliant implementation of JSON-RPC 2.0. No curl required, no external dependencies. Just ~450 lines of code total across three classes: client, server, and exception.
+A lightweight, fully compliant implementation of JSON-RPC 2.0. No curl required, no external dependencies. Just ~530 lines of code total across three classes: client, server, and exception.
 
 > **Background**: miGears is the open-source successor of **TinyGears**, a
 > self-developed PHP framework. It was renamed and open-sourced recently because
@@ -19,7 +19,7 @@ A lightweight, fully compliant implementation of JSON-RPC 2.0. No curl required,
 - **Standard error codes** — parse error, invalid request, method not found, invalid params, internal error
 - **Batch requests** — mix calls and notifications in a single batch
 - **Notification support** — fire-and-forget, no response expected
-- **~450 lines total** — readable, auditable, understandable
+- **~530 lines total** — readable, auditable, understandable
 
 ## Installation
 
@@ -146,7 +146,7 @@ miGears RPC follows the miGears philosophy: **minimal, readable, and useful**.
 - **No bloat** — just the JSON-RPC 2.0 spec, nothing more
 - **No magic** — explicit method registration, no auto-discovery
 - **No dependencies** — pure PHP, uses `file_get_contents` with stream contexts
-- **Small enough to read** — three classes, ~450 lines total
+- **Small enough to read** — three classes, ~530 lines total
 
 **What we don't do**:
 - No transport layer abstractions (HTTP, TCP, etc.) — bring your own
@@ -193,7 +193,7 @@ MIT
 
 极简 JSON-RPC 2.0 客户端与服务端 — 零依赖，纯 PHP 流实现。
 
-轻量级、完全兼容 JSON-RPC 2.0 规范的实现。不需要 curl，没有外部依赖。三个类总共约 450 行代码：客户端、服务端和异常类。
+轻量级、完全兼容 JSON-RPC 2.0 规范的实现。不需要 curl，没有外部依赖。三个类总共约 530 行代码：客户端、服务端和异常类。
 
 ## 特性
 
@@ -204,7 +204,7 @@ MIT
 - **标准错误码** — 解析错误、无效请求、方法未找到、无效参数、内部错误
 - **批量请求** — 单次批量中可混合调用和通知
 - **通知支持** — 发后即忘，不需要响应
-- **总共约 450 行** — 可读、可审计、可理解
+- **总共约 530 行** — 可读、可审计、可理解
 
 ## 安装
 
@@ -239,7 +239,7 @@ try {
     $client->call('nonexistentMethod');
 } catch (JsonRpcException $e) {
     echo $e->getCode();    // -32601
-    echo $e->getMessage(); // 方法未找到
+    echo $e->getMessage(); // Method not found: nonexistentMethod
     echo $e->getData();    // 可选的错误数据
 }
 ```
@@ -331,7 +331,7 @@ miGears RPC 遵循 miGears 设计哲学：**极简、可读、实用**。
 - **不臃肿** — 只实现 JSON-RPC 2.0 规范，不多不少
 - **不魔法** — 显式方法注册，没有自动发现
 - **零依赖** — 纯 PHP，使用 `file_get_contents` + 流上下文
-- **小到可以读完** — 三个类，总共约 450 行
+- **小到可以读完** — 三个类，总共约 530 行
 
 **我们不做的事**：
 - 没有传输层抽象（HTTP、TCP 等）— 自己选择传输方式

@@ -162,9 +162,9 @@ PHP
 
     public function testNotifyDoesNotThrow(): void
     {
+        $this->expectNotToPerformAssertions();
         $client = $this->getClient();
         $client->notify('notify_update', ['test' => 'hello']);
-        $this->assertTrue(true); // No exception = pass
     }
 
     // --- setHeader ---
