@@ -76,7 +76,7 @@ class JsonRpcServer
             return '';
         }
 
-        return json_encode($response, JSON_UNESCAPED_UNICODE);
+        return $this->encode($response);
     }
 
     /**
@@ -173,7 +173,7 @@ class JsonRpcServer
             return ''; // All notifications
         }
 
-        return json_encode($responses, JSON_UNESCAPED_UNICODE);
+        return $this->encode($responses);
     }
 
     /**
@@ -223,13 +223,33 @@ class JsonRpcServer
      */
     private function encodeError(int $code, string $message): string
     {
-        return json_encode([
+        return $this->encode([
             'jsonrpc' => self::JSONRPC_VERSION,
             'error' => [
                 'code' => $code,
                 'message' => $message,
             ],
             'id' => null,
-        ], JSON_UNESCAPED_UNICODE);
+        ]);
+    }
+
+    /**
+     * Safe json_encode wrapper — always returns a string.
+     *
+     * On encoding failure (e.g. invalid UTF-8 in handler result), returns
+     * a static -32603 Internal error JSON instead of throwing TypeError.
+     *
+     * @param array<mixed> $data
+     */
+    private function encode(array $data): string
+    {
+        $json = json_encode($data, JSON_UNESCAPED_UNICODE);
+
+        if ($json !== false) {
+            return $json;
+        }
+
+        // Fallback: hard-coded JSON, guaranteed to encode.
+        return '{"jsonrpc":"' . self::JSONRPC_VERSION . '","error":{"code":-32603,"message":"Internal error"},"id":null}';
     }
 }

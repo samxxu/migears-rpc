@@ -300,6 +300,28 @@ class JsonRpcServerTest extends TestCase
         $this->assertSame(-32602, $data['error']['code']);
     }
 
+    // --- json_encode failure must not throw TypeError ---
+
+    public function testHandleDoesNotThrowOnEncodingFailure(): void
+    {
+        $server = new JsonRpcServer();
+        $server->register('bad', function () {
+            // Return a string with invalid UTF-8 byte sequence.
+            return "\xB1\x31";
+        });
+
+        $request = json_encode([
+            'jsonrpc' => '2.0',
+            'method' => 'bad',
+            'id' => 1,
+        ]);
+
+        $response = $server->handle($request);
+
+        $data = json_decode($response, true);
+        $this->assertSame(-32603, $data['error']['code']);
+    }
+
     // --- Batch ---
 
     public function testBatchRequest(): void
