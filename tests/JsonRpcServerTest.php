@@ -563,6 +563,19 @@ class JsonRpcServerTest extends TestCase
         $this->assertSame(3, $results[1]['result']);
     }
 
+    public function testBatchOfOnlyInvalidElementsAnswersEach(): void
+    {
+        // P2-1: an element that is an array but not a Request object used to be
+        // dropped as a notification. When every element was invalid the whole
+        // batch then produced no response at all, even though each element owed
+        // its own -32600.
+        $results = json_decode($this->server->handle('[{"jsonrpc":"2.0"},[1,2]]'), true);
+
+        $this->assertCount(2, $results);
+        $this->assertSame(-32600, $results[0]['error']['code']);
+        $this->assertSame(-32600, $results[1]['error']['code']);
+    }
+
     // --- has / register ---
 
     public function testHasMethod(): void
