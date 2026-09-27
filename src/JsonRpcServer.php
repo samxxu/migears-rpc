@@ -94,7 +94,7 @@ class JsonRpcServer
      *
      * @param array<string, mixed> $request Decoded JSON-RPC request object
      * @return array<string, mixed>|null Response array, or null for notifications
-     *         (including notifications that fail validation or method lookup)
+     *         (including notifications whose method or params are rejected)
      */
     private function handleSingle(array $request): ?array
     {
@@ -102,19 +102,22 @@ class JsonRpcServer
         $id = $request['id'] ?? null;
         $isNotification = !$hasId;
 
-        // Validate request structure
+        // Structural validation comes first, and is not exempt for id-less input:
+        // a Notification must itself be a valid Request object (spec §4.2), so an
+        // element that is not one — `{}`, `[1,2]`, a wrong version — is answered
+        // with -32600 even though it carries no id.
         if (!isset($request['jsonrpc']) || $request['jsonrpc'] !== self::JSONRPC_VERSION) {
-            if ($isNotification) return null;
             return $this->errorResponse(-32600, 'Invalid Request', $id);
         }
 
         if (!isset($request['method']) || !is_string($request['method'])) {
-            if ($isNotification) return null;
             return $this->errorResponse(-32600, 'Invalid Request', $id);
         }
 
         $method = $request['method'];
 
+        // Past this point the element is a well-formed Request object, so an absent
+        // id means notification: content errors are then never replied to.
         // Params is optional; if present, it must be an array (list or object).
         if (array_key_exists('params', $request)) {
             $params = $request['params'];
@@ -148,9 +151,10 @@ class JsonRpcServer
         } catch (JsonRpcException $e) {
             if ($isNotification) return null;
             return $this->errorResponse($e->getCode(), $e->getMessage(), $id, $e->getData());
-        } catch (\ArgumentCountError) {
+        } catch (\TypeError) {
             if ($isNotification) return null;
-            // The caller's params do not satisfy the handler's signature.
+            // The params do not fit the handler's signature: wrong argument count
+            // (ArgumentCountError extends TypeError) or wrong argument type.
             // Note: `{}` and `[]` both decode to an empty array, so "too few
             // arguments" is reported as invalid params rather than distinguished.
             return $this->errorResponse(-32602, 'Invalid params', $id);

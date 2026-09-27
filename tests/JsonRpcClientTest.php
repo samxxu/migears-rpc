@@ -247,6 +247,29 @@ PHP
         $this->assertSame(30, $results[1]['result']);
     }
 
+    public function testBatchReturnsResponseEnvelopes(): void
+    {
+        // batch() hands back the decoded envelopes as-is: it neither extracts the
+        // results nor turns a per-element error into an exception, so the caller
+        // can correlate ids and inspect errors itself.
+        $client = $this->getClient();
+        $results = $client->batch([
+            ['method' => 'add', 'params' => [1, 2], 'id' => 11],
+            ['method' => 'nonexistent', 'id' => 12],
+        ]);
+
+        $this->assertCount(2, $results);
+
+        $this->assertSame(['jsonrpc', 'result', 'id'], array_keys($results[0]));
+        $this->assertSame('2.0', $results[0]['jsonrpc']);
+        $this->assertSame(3, $results[0]['result']);
+        $this->assertSame(11, $results[0]['id']);
+
+        $this->assertArrayHasKey('error', $results[1]);
+        $this->assertSame(-32601, $results[1]['error']['code']);
+        $this->assertSame(12, $results[1]['id']);
+    }
+
     // --- Version constant ---
 
     public function testVersionConstant(): void

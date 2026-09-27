@@ -118,6 +118,17 @@ class JsonRpcServerTest extends TestCase
         $this->assertSame('', $response);
     }
 
+    public function testNotificationWithInvalidParamsIsNotAnswered(): void
+    {
+        // A well-formed Request object without an id is a notification, so its
+        // content errors are never replied to — unlike structural failures.
+        $response = $this->server->handle(
+            '{"jsonrpc":"2.0","method":"add","params":"not-an-array"}'
+        );
+
+        $this->assertSame('', $response);
+    }
+
     // --- Error cases ---
 
     public function testMethodNotFound(): void
@@ -369,6 +380,25 @@ class JsonRpcServerTest extends TestCase
         $this->assertArrayNotHasKey('data', $data['error']);
     }
 
+    public function testParamTypeMismatchReturnsInvalidParams(): void
+    {
+        $server = new JsonRpcServer();
+        $server->register('typed', fn(int $a) => $a);
+
+        // The argument count is right but the type is not — a TypeError, which
+        // must be reported as invalid params rather than an internal error.
+        $response = $server->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'method' => 'typed',
+            'params' => ['abc'],
+            'id' => 1,
+        ]));
+
+        $data = json_decode($response, true);
+        $this->assertSame(-32602, $data['error']['code']);
+        $this->assertArrayNotHasKey('data', $data['error']);
+    }
+
     // --- Decoded-array input (e.g. miGears Web Request::$body) ---
 
     public function testHandleAcceptsDecodedArray(): void
@@ -462,6 +492,23 @@ class JsonRpcServerTest extends TestCase
         }
     }
 
+    public function testStructurallyInvalidRequestWithoutIdIsStillAnswered(): void
+    {
+        // Neither input is a valid Request object, so neither is a notification:
+        // the server must answer with -32600 even though no id was sent.
+        $inputs = [
+            '{"jsonrpc":"2.0"}',
+            '{"jsonrpc":"1.0","method":"ping"}',
+        ];
+
+        foreach ($inputs as $input) {
+            $data = json_decode($this->server->handle($input), true);
+
+            $this->assertSame(-32600, $data['error']['code'], "input: $input");
+            $this->assertNull($data['id']);
+        }
+    }
+
     public function testEmptyBatchIsInvalidRequest(): void
     {
         $response = $this->server->handle('[]');
@@ -485,6 +532,34 @@ class JsonRpcServerTest extends TestCase
 
         $this->assertCount(2, $results);
         $this->assertSame(-32600, $results[0]['error']['code']);
+        $this->assertSame(3, $results[1]['result']);
+    }
+
+    public function testBatchWithNestedArrayElementGetsItsOwnError(): void
+    {
+        // An array that is not a Request object is not a notification either, so
+        // it must be answered per element instead of being silently dropped.
+        $response = $this->server->handle(
+            '[[1,2],{"jsonrpc":"2.0","method":"add","params":[1,2],"id":1}]'
+        );
+        $results = json_decode($response, true);
+
+        $this->assertCount(2, $results);
+        $this->assertSame(-32600, $results[0]['error']['code']);
+        $this->assertNull($results[0]['id']);
+        $this->assertSame(3, $results[1]['result']);
+    }
+
+    public function testBatchWithEmptyObjectElementGetsItsOwnError(): void
+    {
+        $response = $this->server->handle(
+            '[{},{"jsonrpc":"2.0","method":"add","params":[1,2],"id":1}]'
+        );
+        $results = json_decode($response, true);
+
+        $this->assertCount(2, $results);
+        $this->assertSame(-32600, $results[0]['error']['code']);
+        $this->assertNull($results[0]['id']);
         $this->assertSame(3, $results[1]['result']);
     }
 

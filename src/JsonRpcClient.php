@@ -120,7 +120,9 @@ class JsonRpcClient
      * Send a batch of requests.
      *
      * @param list<array{method: string, params?: array<int|string, mixed>, id?: int|string|null}> $requests
-     * @return array<int|string, mixed> Array of results (in the same order)
+     * @return array<int|string, mixed> Decoded response envelopes (`jsonrpc`, `result`
+     *         or `error`, `id`) in server order — errors are not extracted and no id
+     *         association is performed; inspect each envelope yourself
      */
     public function batch(array $requests): array
     {

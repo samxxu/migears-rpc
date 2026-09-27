@@ -4,7 +4,7 @@
 
 Minimalist JSON-RPC 2.0 client and server for PHP — zero dependencies, pure PHP streams.
 
-A lightweight, fully compliant implementation of JSON-RPC 2.0. No curl required, no external dependencies. Just ~625 lines of code total across three classes: client, server, and exception.
+A lightweight, fully compliant implementation of JSON-RPC 2.0. No curl required, no external dependencies. Just ~630 lines of code total across three classes: client, server, and exception.
 
 > **Background**: miGears is the open-source successor of **TinyGears**, a
 > self-developed PHP framework. It was renamed and open-sourced recently because
@@ -19,7 +19,7 @@ A lightweight, fully compliant implementation of JSON-RPC 2.0. No curl required,
 - **Standard error codes** — parse error, invalid request, method not found, invalid params, internal error
 - **Batch requests** — mix calls and notifications in a single batch
 - **Notification support** — fire-and-forget, no response expected
-- **~625 lines total** — readable, auditable, understandable
+- **~630 lines total** — readable, auditable, understandable
 
 ## Installation
 
@@ -117,7 +117,7 @@ $client->setHeader('X-API-Key', 'my-key');
 | `__construct(string $endpoint, float $timeout = 10.0, array $headers = [])` | Create a new client |
 | `call(string $method, array $params = []): mixed` | Call a remote method and return the result |
 | `notify(string $method, array $params = []): void` | Send a notification (no response; uses `NOTIFY_TIMEOUT`) |
-| `batch(array $requests): array` | Send a batch of requests |
+| `batch(array $requests): array` | Send a batch of requests; returns the decoded response envelopes |
 | `setHeader(string $name, string $value): self` | Add a custom HTTP header |
 | `getLastRequestId(): int` | Get the current request counter value |
 
@@ -145,6 +145,8 @@ $client->setHeader('X-API-Key', 'my-key');
 
 **Batch responses** are always a JSON array. If a single result cannot be encoded (for example invalid UTF-8 returned by a handler), only that element becomes a `-32603` error — its `id` is preserved, and the remaining results are returned intact.
 
+**Server-side notifications.** A request without an `id` is only a notification once it is a well-formed Request object. An element that carries no `id` and is not one — `{}`, `[1, 2]`, an unregistered `jsonrpc` version — is answered with `-32600`, since it is not a notification at all; this holds for batch elements too. Content errors on a genuine notification (unknown method, unusable params) are never replied to, as the spec requires.
+
 **Notifications.** `notify()` never waits for the configured request timeout. It uses `JsonRpcClient::NOTIFY_TIMEOUT` (0.5 s) and swallows transport errors, because a notification has no response to report back.
 
 **Known limitations.** After `json_decode()`, `params: {}` and `params: []` are indistinguishable (both `[]`), so an empty param set is passed as zero arguments and a handler that requires arguments answers `-32602 Invalid params`. Likewise, a single request object whose keys happen to be exactly `0..n-1` decodes into a list and is treated as a batch request.
@@ -156,7 +158,7 @@ miGears RPC follows the miGears philosophy: **minimal, readable, and useful**.
 - **No bloat** — just the JSON-RPC 2.0 spec, nothing more
 - **No magic** — explicit method registration, no auto-discovery
 - **No dependencies** — pure PHP, uses `file_get_contents` with stream contexts
-- **Small enough to read** — three classes, ~625 lines total
+- **Small enough to read** — three classes, ~630 lines total
 
 **What we don't do**:
 - No transport layer abstractions (HTTP, TCP, etc.) — bring your own
@@ -217,7 +219,7 @@ MIT
 
 极简 JSON-RPC 2.0 客户端与服务端 — 零依赖，纯 PHP 流实现。
 
-轻量级、完全兼容 JSON-RPC 2.0 规范的实现。不需要 curl，没有外部依赖。三个类总共约 625 行代码：客户端、服务端和异常类。
+轻量级、完全兼容 JSON-RPC 2.0 规范的实现。不需要 curl，没有外部依赖。三个类总共约 630 行代码：客户端、服务端和异常类。
 
 ## 特性
 
@@ -228,7 +230,7 @@ MIT
 - **标准错误码** — 解析错误、无效请求、方法未找到、无效参数、内部错误
 - **批量请求** — 单次批量中可混合调用和通知
 - **通知支持** — 发后即忘，不需要响应
-- **总共约 625 行** — 可读、可审计、可理解
+- **总共约 630 行** — 可读、可审计、可理解
 
 ## 安装
 
@@ -326,7 +328,7 @@ $client->setHeader('X-API-Key', 'my-key');
 | `__construct(string $endpoint, float $timeout = 10.0, array $headers = [])` | 创建新客户端 |
 | `call(string $method, array $params = []): mixed` | 调用远程方法并返回结果 |
 | `notify(string $method, array $params = []): void` | 发送通知（无响应；使用 `NOTIFY_TIMEOUT`） |
-| `batch(array $requests): array` | 发送批量请求 |
+| `batch(array $requests): array` | 发送批量请求；返回解码后的响应信封 |
 | `setHeader(string $name, string $value): self` | 添加自定义 HTTP 头 |
 | `getLastRequestId(): int` | 获取当前请求计数器值 |
 
@@ -354,6 +356,8 @@ $client->setHeader('X-API-Key', 'my-key');
 
 **批量响应**始终是 JSON 数组。若某一条结果无法编码（例如处理器返回非法 UTF-8），只有该条变成 `-32603` 错误，且保留其原始 `id`，其余结果不受影响、完整返回。
 
+**服务端通知语义。** 只有当一个不带 `id` 的元素本身是合法的 Request 对象时，它才算通知。不带 `id` 但不是合法请求的输入——`{}`、`[1, 2]`、`jsonrpc` 版本不对——一律返回 `-32600`，因为它根本不是通知；批量内部的元素同样适用。真正通知上的内容级错误（方法未找到、参数不可用）则依规范不予响应。
+
 **通知。** `notify()` 不等待构造器配置的请求超时，而是使用 `JsonRpcClient::NOTIFY_TIMEOUT`（0.5 秒）并吞掉传输层错误——通知本就没有响应需要回传。
 
 **已知限制。** 经 `json_decode()` 之后，`params: {}` 与 `params: []` 无法区分（都是 `[]`），因此空参数集会以「零个参数」调用处理器，需要参数的处理器将返回 `-32602 Invalid params`。同理，单个请求对象的键恰好为 `0..n-1` 时会被解码成列表，从而按批量请求处理。
@@ -365,7 +369,7 @@ miGears RPC 遵循 miGears 设计哲学：**极简、可读、实用**。
 - **不臃肿** — 只实现 JSON-RPC 2.0 规范，不多不少
 - **不魔法** — 显式方法注册，没有自动发现
 - **零依赖** — 纯 PHP，使用 `file_get_contents` + 流上下文
-- **小到可以读完** — 三个类，总共约 625 行
+- **小到可以读完** — 三个类，总共约 630 行
 
 **我们不做的事**：
 - 没有传输层抽象（HTTP、TCP 等）— 自己选择传输方式
