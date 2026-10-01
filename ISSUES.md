@@ -17,20 +17,23 @@ Legend — **P0** functional or security · **P1** documentation that fails when
 
 | | |
 |---|---|
-| Unsettled | P0 0 · P1 0 · P2 1 · P3 3 · other 1 |
-| Settled | 0 of 5 |
-| Waiting on the owner | _nothing_ |
-| Waiting on the reviewer | `P2-1`, `P3-1`, `P3-2`, `P3-3`, `G2` |
+| Unsettled | P0 0 · P1 0 · P2 1 · P3 3 · other 0 |
+| Settled | 4 of 8 |
+| Waiting on the owner | `P2-2`, `P3-4` |
 | Waiting on the coordinator | _nothing_ |
+| Waiting on the reviewer | `P3-2`, `P3-5` |
 | Deferred, owing nobody | _nothing_ |
 
 | id | level | status | title |
 |---|---|---|---|
-| [`P2-1`](issues/P2-1.md) | P2 | **fixed** | Inside a batch, an element that is an array but not a request object is … |
-| [`P3-1`](issues/P3-1.md) | P3 | **fixed** | `JsonRpcClient::batch()` is documented as returning an 'Array of … |
+| [`P2-1`](issues/P2-1.md) | P2 | **verified** | Inside a batch, an element that is an array but not a request object is … |
+| [`P2-2`](issues/P2-2.md) | P2 | **open** | Internal errors (code -32603) include the exception's short class name … |
+| [`P3-1`](issues/P3-1.md) | P3 | **verified** | `JsonRpcClient::batch()` is documented as returning an 'Array of … |
 | [`P3-2`](issues/P3-2.md) | P3 | **rejected** | `notify()` still swallows transport errors with `@` and returns void, … |
-| [`P3-3`](issues/P3-3.md) | P3 | **fixed** | A parameter type mismatch is classified as Internal error and leaks the … |
-| [`G2`](issues/G2.md) | - | **fixed** | Strict flags: `phpunit.xml.dist` currently sets none of the five. The … |
+| [`P3-3`](issues/P3-3.md) | P3 | **verified** | A parameter type mismatch is classified as Internal error and leaks the … |
+| [`P3-4`](issues/P3-4.md) | P3 | **open** | README claims '~350 lines of source' which is roughly accurate for the … |
+| [`P3-5`](issues/P3-5.md) | P3 | **fixed** | The `\TypeError` catch added for parameter binding is too broad: a … |
+| [`G2`](issues/G2.md) | - | **verified** | Strict flags: `phpunit.xml.dist` currently sets none of the five. The … |
 
 ## Unclosed
 
@@ -39,17 +42,16 @@ highest severity first. `waiting on` is the party who acts next, read from that 
 
 | | |
 |---|---|
-| Unclosed | **5** of 5 |
-| By status | `rejected` 1 · `fixed` 4 |
-| Waiting on | reviewer 5 |
+| Unclosed | **4** of 8 |
+| By status | `open` 2 · `rejected` 1 · `fixed` 1 |
+| Waiting on | owner 2 · reviewer 2 |
 
 | level | item | status | waiting on | title |
 |---|---|---|---|---|
-| **P2** | [`P2-1`](issues/P2-1.md) | `fixed` | reviewer | Inside a batch, an element that is an array but not a request object is … |
-| **P3** | [`P3-1`](issues/P3-1.md) | `fixed` | reviewer | `JsonRpcClient::batch()` is documented as returning an 'Array of … |
+| **P2** | [`P2-2`](issues/P2-2.md) | `open` | owner | Internal errors (code -32603) include the exception's short class name … |
 | **P3** | [`P3-2`](issues/P3-2.md) | `rejected` | reviewer | `notify()` still swallows transport errors with `@` and returns void, … |
-| **P3** | [`P3-3`](issues/P3-3.md) | `fixed` | reviewer | A parameter type mismatch is classified as Internal error and leaks the … |
-| **-** | [`G2`](issues/G2.md) | `fixed` | reviewer | Strict flags: `phpunit.xml.dist` currently sets none of the five. The … |
+| **P3** | [`P3-4`](issues/P3-4.md) | `open` | owner | README claims '~350 lines of source' which is roughly accurate for the … |
+| **P3** | [`P3-5`](issues/P3-5.md) | `fixed` | reviewer | The `\TypeError` catch added for parameter binding is too broad: a … |
 
 ## Verdict
 
@@ -90,20 +92,23 @@ No test for request with non-object params (array params are valid per spec); no
 
 | | |
 |---|---|
-| 未了结 | P0 0 · P1 0 · P2 1 · P3 3 · 其他 1 |
-| 已了结 | 0 / 5 |
-| 等负责人 | _无_ |
-| 等评审方 | `P2-1`, `P3-1`, `P3-2`, `P3-3`, `G2` |
+| 未了结 | P0 0 · P1 0 · P2 1 · P3 3 · 其他 0 |
+| 已了结 | 4 / 8 |
+| 等模块主 | `P2-2`, `P3-4` |
 | 等协调人 | _无_ |
+| 等评审方 | `P3-2`, `P3-5` |
 | 已暂缓，不欠谁 | _无_ |
 
 | id | 级别 | 状态 | 标题 |
 |---|---|---|---|
-| [`P2-1`](issues/P2-1.md) | P2 | **fixed** | 批量内部，数组但不是请求对象的元素被静默丢弃，而不是各自回一个 -32600。实测 [[1,2], {valid}] 只返回有效那条，[{}, … |
-| [`P3-1`](issues/P3-1.md) | P3 | **fixed** | JsonRpcClient::batch() 的 docblock … |
+| [`P2-1`](issues/P2-1.md) | P2 | **verified** | 批量内部，数组但不是请求对象的元素被静默丢弃，而不是各自回一个 -32600。实测 [[1,2], {valid}] 只返回有效那条，[{}, … |
+| [`P2-2`](issues/P2-2.md) | P2 | **open** | 内部错误（code -32603）在 data 字段中包含异常的短类名（通过 "class": … |
+| [`P3-1`](issues/P3-1.md) | P3 | **verified** | JsonRpcClient::batch() 的 docblock … |
 | [`P3-2`](issues/P3-2.md) | P3 | **rejected** | notify() 仍用 @ 吞掉传输错误并返回 void，调用方无法得知通知是否送达。已作为刻意取舍记录在案。 |
-| [`P3-3`](issues/P3-3.md) | P3 | **fixed** | 参数类型不匹配被归为 Internal error 并泄露类名：签名 fn(int $a) 的处理器收到 ["abc"] 会返回 -32603 … |
-| [`G2`](issues/G2.md) | - | **fixed** | 严格开关：`phpunit.xml.dist` … |
+| [`P3-3`](issues/P3-3.md) | P3 | **verified** | 参数类型不匹配被归为 Internal error 并泄露类名：签名 fn(int $a) 的处理器收到 ["abc"] 会返回 -32603 … |
+| [`P3-4`](issues/P3-4.md) | P3 | **open** | README 称「约 350 行源码」，三个源文件大致准确，但数字模糊——具体数字或范围会更可信。 |
+| [`P3-5`](issues/P3-5.md) | P3 | **fixed** | 为参数绑定加入的 `\TypeError` 捕获过宽：处理器体内抛出的 `TypeError` 会被报成 `-32602 Invalid … |
+| [`G2`](issues/G2.md) | - | **verified** | 严格开关：`phpunit.xml.dist` … |
 
 ## 未关闭
 
@@ -112,17 +117,16 @@ No test for request with non-object params (array params are valid per spec); no
 
 | | |
 |---|---|
-| 未关闭 | **5** / 5 |
-| 按状态 | `rejected` 1 · `fixed` 4 |
-| 等在谁 | 评审方 5 |
+| 未关闭 | **4** / 8 |
+| 按状态 | `open` 2 · `rejected` 1 · `fixed` 1 |
+| 等在谁 | 模块主 2 · 评审方 2 |
 
 | 级别 | 条目 | 状态 | 等在谁 | 标题 |
 |---|---|---|---|---|
-| **P2** | [`P2-1`](issues/P2-1.md) | `fixed` | 评审方 | 批量内部，数组但不是请求对象的元素被静默丢弃，而不是各自回一个 -32600。实测 [[1,2], {valid}] 只返回有效那条，[{}, … |
-| **P3** | [`P3-1`](issues/P3-1.md) | `fixed` | 评审方 | JsonRpcClient::batch() 的 docblock … |
+| **P2** | [`P2-2`](issues/P2-2.md) | `open` | 模块主 | 内部错误（code -32603）在 data 字段中包含异常的短类名（通过 "class": … |
 | **P3** | [`P3-2`](issues/P3-2.md) | `rejected` | 评审方 | notify() 仍用 @ 吞掉传输错误并返回 void，调用方无法得知通知是否送达。已作为刻意取舍记录在案。 |
-| **P3** | [`P3-3`](issues/P3-3.md) | `fixed` | 评审方 | 参数类型不匹配被归为 Internal error 并泄露类名：签名 fn(int $a) 的处理器收到 ["abc"] 会返回 -32603 … |
-| **-** | [`G2`](issues/G2.md) | `fixed` | 评审方 | 严格开关：`phpunit.xml.dist` … |
+| **P3** | [`P3-4`](issues/P3-4.md) | `open` | 模块主 | README 称「约 350 行源码」，三个源文件大致准确，但数字模糊——具体数字或范围会更可信。 |
+| **P3** | [`P3-5`](issues/P3-5.md) | `fixed` | 评审方 | 为参数绑定加入的 `\TypeError` 捕获过宽：处理器体内抛出的 `TypeError` 会被报成 `-32602 Invalid … |
 
 ## 结论
 
