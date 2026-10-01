@@ -4,7 +4,7 @@
 
 Minimalist JSON-RPC 2.0 client and server for PHP — zero dependencies, pure PHP streams.
 
-A lightweight, fully compliant implementation of JSON-RPC 2.0. No curl required, no external dependencies. Just ~630 lines of code total across three classes: client, server, and exception.
+A lightweight, fully compliant implementation of JSON-RPC 2.0. No curl required, no external dependencies. Just ~760 lines of code total across three classes: client, server, and exception.
 
 > **Background**: miGears is the open-source successor of **TinyGears**, a
 > self-developed PHP framework. It was renamed and open-sourced recently because
@@ -19,7 +19,23 @@ A lightweight, fully compliant implementation of JSON-RPC 2.0. No curl required,
 - **Standard error codes** — parse error, invalid request, method not found, invalid params, internal error
 - **Batch requests** — mix calls and notifications in a single batch
 - **Notification support** — fire-and-forget, no response expected
-- **~630 lines total** — readable, auditable, understandable
+- **~760 lines total** — readable, auditable, understandable
+
+## Boundaries
+
+**In scope**
+
+- A complete JSON-RPC 2.0 client and server (`JsonRpcClient`, `JsonRpcServer`, `JsonRpcException`; PSR-4 root `MiGears\Rpc`): single calls, notifications and batch requests, usable together or independently.
+- Client transport over PHP stream contexts (`file_get_contents` POST) with a configurable endpoint, request timeout and custom HTTP headers (`setHeader()`); no curl, no dependency beyond PHP 8.1.
+- Explicit server-side method registration (`register()` / `has()`), automatic positional-vs-named parameter handling, and the five standard error codes exposed as `JsonRpcException` factories.
+- Zero dependencies; roughly 760 lines across three classes.
+
+**Not in scope (by design)**
+
+- HTTP transport concerns beyond POSTing to a URL: no server bootstrap, no routing, no response emission — the README's integration example leaves routing and `Content-Type` to miGears Web (`migears/web`).
+- Middleware — wrap `handle()` yourself if you need it.
+- Service discovery and auto-registration — method registration is explicit by design.
+- Authentication and authorization — no built-in auth; pass headers on the client and validate inside handlers; identity is owned by `migears/security` and `migears/security-token-auth`.
 
 ## Installation
 
@@ -143,6 +159,8 @@ $client->setHeader('X-API-Key', 'my-key');
 
 **Error `data` field.** A handler that throws `JsonRpcException` controls the error verbatim, including its optional `data`. Any other exception becomes `-32603 Internal error` whose `data` holds only the exception's short class name (e.g. `PDOException`); the raw message is deliberately withheld because it can carry DSNs, credentials and filesystem paths.
 
+**`-32602` belongs to the caller's arguments alone.** The argument list is checked against the handler's signature before the call, under PHP's own `strict_types` rules: the argument count, and the declared type of every argument that was passed. A list that does not fit is `-32602 Invalid params`, because it is the caller's mistake. Everything past that call is the handler's, so a `TypeError` raised inside its body is `-32603 Internal error` and is never sent back as though the caller had got its arguments wrong.
+
 **Batch responses** are always a JSON array. If a single result cannot be encoded (for example invalid UTF-8 returned by a handler), only that element becomes a `-32603` error — its `id` is preserved, and the remaining results are returned intact.
 
 **Server-side notifications.** A request without an `id` is only a notification once it is a well-formed Request object. An element that carries no `id` and is not one — `{}`, `[1, 2]`, an unregistered `jsonrpc` version — is answered with `-32600`, since it is not a notification at all; this holds for batch elements too. Content errors on a genuine notification (unknown method, unusable params) are never replied to, as the spec requires.
@@ -158,7 +176,7 @@ miGears RPC follows the miGears philosophy: **minimal, readable, and useful**.
 - **No bloat** — just the JSON-RPC 2.0 spec, nothing more
 - **No magic** — explicit method registration, no auto-discovery
 - **No dependencies** — pure PHP, uses `file_get_contents` with stream contexts
-- **Small enough to read** — three classes, ~630 lines total
+- **Small enough to read** — three classes, ~760 lines total
 
 **What we don't do**:
 - No transport layer abstractions (HTTP, TCP, etc.) — bring your own
@@ -219,7 +237,7 @@ MIT
 
 极简 JSON-RPC 2.0 客户端与服务端 — 零依赖，纯 PHP 流实现。
 
-轻量级、完全兼容 JSON-RPC 2.0 规范的实现。不需要 curl，没有外部依赖。三个类总共约 630 行代码：客户端、服务端和异常类。
+轻量级、完全兼容 JSON-RPC 2.0 规范的实现。不需要 curl，没有外部依赖。三个类总共约 760 行代码：客户端、服务端和异常类。
 
 ## 特性
 
@@ -230,7 +248,23 @@ MIT
 - **标准错误码** — 解析错误、无效请求、方法未找到、无效参数、内部错误
 - **批量请求** — 单次批量中可混合调用和通知
 - **通知支持** — 发后即忘，不需要响应
-- **总共约 630 行** — 可读、可审计、可理解
+- **总共约 760 行** — 可读、可审计、可理解
+
+## 边界
+
+**范围内**
+
+- 完整的 JSON-RPC 2.0 客户端与服务端（`JsonRpcClient`、`JsonRpcServer`、`JsonRpcException`；PSR-4 根 `MiGears\Rpc`）：单次调用、通知、批量请求，可一起用也可单独用。
+- 客户端基于 PHP 流上下文传输（`file_get_contents` POST），可配置 endpoint、请求超时与自定义 HTTP 头（`setHeader()`）；不需要 curl，除 PHP 8.1 外无任何依赖。
+- 服务端显式方法注册（`register()` / `has()`）、位置参数与命名参数自动判定，以及五个标准错误码（以 `JsonRpcException` 静态工厂暴露）。
+- 零依赖，三个类共约 760 行。
+
+**范围外（刻意不做）**
+
+- 只覆盖「向 URL 发一个 POST」，不碰其余 HTTP 传输事项：不做服务启动、不做路由、不发送响应 —— README 的集成示例把路由与 `Content-Type` 交给 miGears Web（`migears/web`）。
+- 中间件 —— 需要的话自行包装 `handle()`。
+- 服务发现 / 自动注册 —— 方法注册刻意保持显式。
+- 认证与授权 —— 没有内置认证；客户端传请求头、处理器内自行校验；身份体系由 `migears/security` 与 `migears/security-token-auth` 负责。
 
 ## 安装
 
@@ -354,6 +388,8 @@ $client->setHeader('X-API-Key', 'my-key');
 
 **错误 `data` 字段。** 处理器主动抛出 `JsonRpcException` 时，错误内容（含可选 `data`）原样透传。其他异常统一变为 `-32603 Internal error`，其 `data` 只放异常短类名（如 `PDOException`）；原始 message 一律不回传，因为它可能携带 DSN、账号密码与文件路径。
 
+**`-32602` 只属于调用方自己的参数。** 参数列会在调用之前，按 PHP 在 `strict_types` 下的规则与处理器签名对照：参数个数，以及每一个实际传入的参数的声明类型。不合签名的参数列是 `-32602 Invalid params`，因为那是调用方的错。那次调用之后的一切都归处理器，因此函数体内部抛出的 `TypeError` 是 `-32603 Internal error`，绝不会被送回去，仿佛调用方把参数写错了。
+
 **批量响应**始终是 JSON 数组。若某一条结果无法编码（例如处理器返回非法 UTF-8），只有该条变成 `-32603` 错误，且保留其原始 `id`，其余结果不受影响、完整返回。
 
 **服务端通知语义。** 只有当一个不带 `id` 的元素本身是合法的 Request 对象时，它才算通知。不带 `id` 但不是合法请求的输入——`{}`、`[1, 2]`、`jsonrpc` 版本不对——一律返回 `-32600`，因为它根本不是通知；批量内部的元素同样适用。真正通知上的内容级错误（方法未找到、参数不可用）则依规范不予响应。
@@ -369,7 +405,7 @@ miGears RPC 遵循 miGears 设计哲学：**极简、可读、实用**。
 - **不臃肿** — 只实现 JSON-RPC 2.0 规范，不多不少
 - **不魔法** — 显式方法注册，没有自动发现
 - **零依赖** — 纯 PHP，使用 `file_get_contents` + 流上下文
-- **小到可以读完** — 三个类，总共约 630 行
+- **小到可以读完** — 三个类，总共约 760 行
 
 **我们不做的事**：
 - 没有传输层抽象（HTTP、TCP 等）— 自己选择传输方式
